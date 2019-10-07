@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<style>
+		/*创建button的布局*/
+		.Mybutton {
+			float: left;
+			padding-bottom: 20px;
+			width: 100%;
+		}
+
+		/* 创建三个相等的列 */
+		.Mycolumn {
+			float: left;
+			padding-right: 20px;
+			width: 33.33%;
+		}
+
+		/* 响应式布局 - 小于 600 px 时改为上下布局 */
+		@media screen and (max-width: 600px) {
+			.Mycolumn {
+				width: 100%;
+			}
+		}
+	</style>
+	<title>进程管理与调度模拟</title>
+	<link rel="stylesheet" href="./bulma-0.7.4/css/bulma.min.css">
+	<script src="./jquery-3.4.1.js"></script>
+	<script>
+		var insertonthread = 1000;
+		var onthread2inthread = 1001;
+		var inthread2onthread = 1002;
+		var inthread2outthread = 1003;
+		var outthread2onthread = 1004;
+		var pid_init = 1;
+		var zhongduan = 5;
+		var shijianpian = 20;
+		var rongliang = 10;
+		var Cpu = 2;
+		var zhenlu = 500;
+		var Mqueue1 = new LinkedQueue();
+		var Mqueue2 = new LinkedQueue();
+		var Mqueue3 = new LinkedQueue();
+
+		function Mythread(M_pid, M_name, M_time) {
+			this.Mpid = M_pid;
+			this.Mname = M_name;
+			this.Mtime = M_time;
+			this.Mshijianpian = shijianpian;
+			this.jishi = 0;
+			//alert(this.Mpid+this.Mname+this.Mtime+this.Mshijianpian+this.jishi);
+		}
+
+		function LinkedQueue() {
+			//节点结构定义  
+			var Node = function (element) {
+				this.element = element;
+				this.next = null;
+			}
+
+			var length = 0,
+				front,//队首指针  
+				rear;//队尾指针  
+			//入队操作  
+			this.push = function (element) {
+				var node = new Node(element),
+					current;
+				//alert(node.element.Mname);
+				if (length == 0) {
+					front = node;
+					rear = node;
+					length++;
+					// alert(rear.element.Mpid + "被放入" + "当前队列长度为" + length);
+
+					return true;
+				} else {
+					current = rear;
+					current.next = node;
+					rear = node;
+					length++;
+					// alert(rear.element.Mpid + "被放入" + "当前队列长度为" + length);
+
+
+					return true;
+				}
+			}
+			//出队操作  
+			this.pop = function () {
+				if (!front) {
+					return 'Queue is null';
+				} else {
+					var current = front;
+					front = current.next;
+					current.next = null;
+					if (current == rear) {
+						rear = front;
+					}
+					length--;
+					// alert(current.element.Mpid + "被删除" + "当前队列长度为" + length)
+					return current;
+				}
+			}
+			//获取队长  
+			this.size = function () {
+				return length;
+			}
+			//获取队首  
+			this.getFront = function () {
+				return front;
+			}
+			//获取队尾  
+			this.getRear = function () {
+				return rear;
+			}
+
+			//清除队列  
+			this.clear = function () {
+				front = null;
+				rear = null;
+				length = 0;
+				return true;
+			}
+
+			//遍历队列
+			this.traver = function () {
+				var lingshi_node = front;
+				var pos = 0;
+				while (lingshi_node) {
+					//alert(lingshi_node.element.jishi);
+					//alert(zhongduan);
+					lingshi_node.element.jishi += zhenlu;
+					if (lingshi_node.element.jishi >= (zhongduan * 1000)) {
+						// alert(lingshi_node.element.jishi);
+						var mytab = document.getElementById("inthread_table");
+						var mytab1 = document.getElementById("onthread_table");
+						lingshi_node.element.Mtime -= zhongduan;
+						lingshi_node.element.Mshijianpian -= zhongduan;
+						var num2 = parseInt(lingshi_node.element.Mshijianpian);
+						var num3 = parseInt(lingshi_node.element.Mtime);
+						mytab.rows[pos].cells[3].innerHTML = num2;
+						mytab.rows[pos].cells[4].innerHTML = num3;
+						if (num2 <= 0 || num3 <= 0) {
+							lingshi_node.element.Mshijianpian = shijianpian;
+							var PID = lingshi_node.element.Mpid;
+							var lingshi_thread = Mqueue1.FinAndDel(PID).element;
+							mytab.deleteRow(pos);
+							if (num3 > 0) {
+								Mqueue2.push(lingshi_thread);
+								creatrow("onthread_table", inthread2onthread);
+							}
+						}
+						lingshi_node.element.jishi = 0;
+					}
+					pos++;
+					lingshi_node = lingshi_node.next;
+				}
+
+			}
+
+			this.FinAndDel = function (Pid) {
+				var lingshi_node = front;
+				var prenode = front;
+				while (lingshi_node) {
+					if (lingshi_node == front) {
+						if (lingshi_node.element.Mpid == Pid) {
+							return this.pop();
+						}
+						else {
+							lingshi_node = lingshi_node.next;
+							continue;
+						}
+					}
+					if (lingshi_node != front && lingshi_node != rear) {
+						if (lingshi_node.element.Mpid == Pid) {
+							var mynode = lingshi_node.next;
+							prenode.next = mynode;
+							lingshi_node.next = null;
+							length--;
+							// alert(lingshi_node.element.Mpid + "被删除" + "当前队列长度为" + length);
+							return lingshi_node;
+						}
+
+					}
+					if (lingshi_node == rear) {
+						if (lingshi_node.element.Mpid == Pid) {
+							prenode.next = null;
+							rear = prenode;
+							length--;
+							return lingshi_node;
+						}
+					}
+					prenode = prenode.next;
+					lingshi_node = lingshi_node.next;
+
+				}
+				alert("本队列中没有进程" + Pid);
+				return false;
+			}
+		}
+
+		function delthreadrow(threadname, Pid) {
+			var mytab = document.getElementById(threadname);
+			for (var i = 0; i < mytab.rows.length; i++) {
+				var num1 = parseInt(mytab.rows[i].cells[1].innerText);
+				if (num1 == Pid) {
+					mytab.deleteRow(i);
+					break;
+				}
+			}
+		}
+
+		function creatrow(threadname, Action) {
+			var tr = document.createElement("tr");
+			var Mcheckbox = document.createElement("td");
+			var Mpid = document.createElement("td");
+			var Mname = document.createElement("td");
+			var Mtimeslice = document.createElement("td");
+			var Mtime = document.createElement("td");
+			var lingshi_queue;
+			tr.appendChild(Mcheckbox);
+			tr.appendChild(Mpid);
+			tr.appendChild(Mname);
+			if (threadname == "inthread_table") {
+				tr.appendChild(Mtimeslice);
+			}
+			if (threadname == "inthread_table" || threadname == "onthread_table") {
+				tr.appendChild(Mtime);
+			}
+
+			if (Action == insertonthread || Action == inthread2onthread || Action == outthread2onthread) {
+				lingshi_queue = Mqueue2;
+			}
+			else if (Action == onthread2inthread) {
+				lingshi_queue = Mqueue1;
+			}
+			else {
+				lingshi_queue = Mqueue3;
+			}
+			var checkbox = document.createElement("input");
+			checkbox.setAttribute("type", "checkbox");
+			if (threadname == "inthread_table") {
+				checkbox.setAttribute("name", "inthread_checkbox");
+			}
+			else if (threadname == "onthread_table") {
+				checkbox.setAttribute("name", "onthread_checkbox");
+			}
+			else {
+				checkbox.setAttribute("name", "outthread_checkbox");
+			}
+
+			var textpid = document.createTextNode(lingshi_queue.getRear().element.Mpid);
+			var textname = document.createTextNode(lingshi_queue.getRear().element.Mname);
+			var textshijianpian = document.createTextNode(lingshi_queue.getRear().element.Mshijianpian);
+			var texttime = document.createTextNode(lingshi_queue.getRear().element.Mtime);
+
+			Mcheckbox.appendChild(checkbox);
+			Mpid.appendChild(textpid);
+			Mname.appendChild(textname);
+			if (threadname == "inthread_table") {
+				Mtimeslice.appendChild(textshijianpian);
+			}
+			if (threadname == "inthread_table" || threadname == "onthread_table") {
+				Mtime.appendChild(texttime)
+			}
+			document.getElementById(threadname).appendChild(tr);
+		}
+
+		function timer() {
+			var mytab1 = document.getElementById("inthread_table");
+			var mytab2 = document.getElementById("onthread_table");
+			if (mytab1.rows.length < Cpu && mytab2.rows.length > 0) {
+				mytab2.deleteRow(0);
+				Mqueue1.push(Mqueue2.pop().element);
+				creatrow("inthread_table", onthread2inthread);
+			}
+			if (mytab1.rows.length > 0) {
+				Mqueue1.traver();
+			}
+
+		}
+
+		$(document).ready(function () {
+			var myVar = setInterval(function () { timer() }, zhenlu);
+
+			$("#creat").hide();
+			$("#creat_fram").hide();
+			$("#init_thread").click(function () {
+				$("#init_thread").hide();
+				$("#creat").show();
+			});
+			$("#queding_button").click(function () {
+				$("#creat").hide();
+				$("#init_thread").show();
+			})
+			$("#quxiao_button").click(function () {
+				$("#creat").hide();
+				$("#init_thread").show();
+			})
+			$("#shezhi_item").click(function () {
+				$("#mian_fram").hide();
+				$("#creat_fram").show();
+			})
+			$("#zhuye_item").click(function () {
+				$("#creat_fram").hide();
+				$("#mian_fram").show();
+
+			})
+
+			document.getElementById("queding_button").onclick = function () {
+				// alert(rongliang)
+				// alert(Mqueue1.size() + Mqueue2.size() + Mqueue3.size());
+				if (Mqueue1.size() + Mqueue2.size() + Mqueue3.size() < rongliang) {
+					var name = document.getElementById("input_name").value;
+					var time = document.getElementById("input_shijian").value;
+					var thead = new Mythread(pid_init, name, time);
+					Mqueue2.push(thead);
+					pid_init = pid_init + 1;
+					creatrow("onthread_table", insertonthread);
+				}
+				else {
+					alert("已创建进程数量超过进程池容量:" + rongliang);
+				}
+			}
+
+			document.getElementById("summit_but").onclick = function () {
+				zhongduan = parseInt(document.getElementById("shizhong_zhongduan").value);
+				shijianpian = parseInt(document.getElementById("jincheng_shijianpian").value);
+				rongliang = parseInt(document.getElementById("jincheng_rongliang").value);
+				Cpu = parseInt(document.getElementById("Cpu_shuliang").value);
+				clearInterval(myVar);
+				myVar = setInterval(function () { timer() }, zhenlu);
+
+				alert(zhongduan + "" + shijianpian + "" + rongliang + "" + Cpu);
+			}
+
+			document.getElementById("block_inthread").onclick = function () {
+				var mytab = document.getElementById("inthread_table");
+				var inthread_check_Arr = document.getElementsByName("inthread_checkbox");
+				// alert(inthread_check_Arr.length);
+				for (var i = 0; i < inthread_check_Arr.length; i++) {
+					if (inthread_check_Arr[i].checked) {
+						var pid = parseInt(mytab.rows[i].cells[1].innerText)
+						// alert(pid)
+						delthreadrow("inthread_table", pid);
+						var mynode = Mqueue1.FinAndDel(pid);
+						if (mynode == false) {
+							alert("block_inthread:" + pid + "删除失败");
+						}
+						mynode.element.Mshijianpian = shijianpian;
+						Mqueue3.push(mynode.element);
+						creatrow("outthread_table", inthread2outthread);
+					}
+				}
+
+			}
+
+			document.getElementById("del_inthread").onclick = function () {
+				var mytab = document.getElementById("inthread_table");
+				var inthread_check_Arr = document.getElementsByName("inthread_checkbox");
+				// alert(inthread_check_Arr.length);
+				for (var i = 0; i < inthread_check_Arr.length; i++) {
+					if (inthread_check_Arr[i].checked) {
+						var pid = parseInt(mytab.rows[i].cells[1].innerText)
+						// alert(pid)
+						delthreadrow("inthread_table", pid);
+						var mynode = Mqueue1.FinAndDel(pid);
+						if (mynode == false) {
+							alert("del_inthread:" + pid + "删除失败");
+						}
+						return true;
+					}
+				}
+
+			}
+
+			document.getElementById("del_onthread").onclick = function () {
+				var mytab = document.getElementById("onthread_table");
+				var onthread_check_Arr = document.getElementsByName("onthread_checkbox");
+				// alert(inthread_check_Arr.length);
+				for (var i = 0; i < onthread_check_Arr.length; i++) {
+					if (onthread_check_Arr[i].checked) {
+						var pid = parseInt(mytab.rows[i].cells[1].innerText)
+						// alert(pid)
+						delthreadrow("onthread_table", pid);
+						var mynode = Mqueue2.FinAndDel(pid);
+						if (mynode == false) {
+							alert("del_onthread:" + pid + "删除失败");
+						}
+						return true;
+					}
+				}
+
+			}
+
+			document.getElementById("wake_outthread").onclick = function () {
+				var mytab = document.getElementById("outthread_table");
+				var outthread_check_Arr = document.getElementsByName("outthread_checkbox");
+				// alert(inthread_check_Arr.length);
+				for (var i = 0; i < outthread_check_Arr.length; i++) {
+					if (outthread_check_Arr[i].checked) {
+						var pid = parseInt(mytab.rows[i].cells[1].innerText)
+						// alert(pid)
+						delthreadrow("outthread_table", pid);
+						var mynode = Mqueue3.FinAndDel(pid);
+						if (mynode == false) {
+							alert("wake_outthread:" + pid + "删除失败");
+						}
+						Mqueue2.push(mynode.element);
+						creatrow("onthread_table", outthread2onthread);
+						return true;
+					}
+				}
+
+			}
+
+			document.getElementById("del_outthread").onclick = function () {
+				var mytab = document.getElementById("outthread_table");
+				var outthread_check_Arr = document.getElementsByName("outthread_checkbox");
+				// alert(inthread_check_Arr.length);
+				for (var i = 0; i < outthread_check_Arr.length; i++) {
+					if (outthread_check_Arr[i].checked) {
+						var pid = parseInt(mytab.rows[i].cells[1].innerText)
+						// alert(pid)
+						delthreadrow("outthread_table", pid);
+						var mynode = Mqueue3.FinAndDel(pid);
+						if (mynode == false) {
+							alert("del_outthread:" + pid + "删除失败");
+						}
+						return true;
+					}
+				}
+
+			}
+
+		});
+
+
+
+	</script>
+</head>
+
+<body>
+	<section class="section">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<div class="container">
+			<p class="title is-3">进程管理与调度模拟</p>
+			<div class="tabs">
+				<ul>
+					<li id="zhuye_item"><a>主页</a></li>
+					<li><a id="shezhi_item">设置</a></li>
+				</ul>
+			</div>
+			<div id="mian_fram">
+				<div class="Mybutton">
+					<div id="creat" class="Mycolumn">
+						<div class="box">
+							<div class="field is-horizontal">
+								<div class="field-label is-small">
+									<label class="label">进程名称</label>
+								</div>
+								<div class="field-body">
+									<div class="field">
+										<p class="control">
+											<input class="input is-small is-rounded" type="text"
+												placeholder="Small input" id="input_name">
+										</p>
+									</div>
+								</div>
+							</div>
+							<div class="field is-horizontal">
+								<div class="field-label is-small">
+									<label class="label">运行时间</label>
+								</div>
+								<div class="field-body">
+									<div class="field">
+										<p class="control">
+											<input class="input is-small is-rounded" type="text"
+												placeholder="Small input" id="input_shijian">
+										</p>
+									</div>
+								</div>
+							</div>
+							<div class="buttons are-small   is-centered">
+								<div class="field is-grouped">
+									<a class="button  is-outlined" id="queding_button">确定</a>
+									<a class="button  is-outlined" id="quxiao_button">取消</a>
+								</div>
+							</div>
+						</div>
+					</div>
+					<a id="init_thread" class="button is-success is-outlined">创建进程</a>
+				</div>
+
+				<div>
+					<div class="Mycolumn">
+						<div class="box">
+							<p class="subtitle is-5">运行态</p>
+							<div class="buttons are-small">
+								<a id="block_inthread" class="button is-primary is-outlined">阻塞进程</a>
+								<a id="del_inthread" class="button is-danger is-outlined">停止进程</a>
+							</div>
+							<table class="table is-bordered is-striped is-narrow is-hoverable is-fullwidth">
+								<thead>
+									<tr>
+										<th> </th>
+										<th>PID</th>
+										<th>名称</th>
+										<th>时间片</th>
+										<th>剩余运行时间</th>
+									</tr>
+								</thead>
+								<tbody id="inthread_table">
+								</tbody>
+							</table>
+						</div>
+					</div>
+
+					<div class="Mycolumn">
+						<div class="box">
+							<p class="subtitle is-5">就绪态</p>
+							<div class="buttons are-small">
+								<a id="del_onthread" class="button is-danger is-outlined">停止进程</a>
+							</div>
+							<table id="ready" class="table is-bordered is-striped is-narrow is-hoverable is-fullwidth">
+								<thead>
+									<tr>
+										<th> </th>
+										<th>PID</th>
+										<th>名称</th>
+										<th>剩余运行时间</th>
+									</tr>
+								</thead>
+								<tbody id="onthread_table">
+
+								</tbody>
+
+							</table>
+						</div>
+					</div>
+
+					<div class="Mycolumn">
+						<div class="box">
+							<p class="subtitle is-5">阻塞态</p>
+							<div class="buttons are-small">
+
+								<a id="wake_outthread" class="button is-primary is-outlined">激活进程</a>
+								<a id="del_outthread" class="button is-danger is-outlined">停止进程</a>
+							</div>
+							<table class="table is-bordered is-striped is-narrow is-hoverable is-fullwidth">
+								<thead>
+									<tr>
+										<th> </th>
+										<th>PID</th>
+										<th>名称</th>
+									</tr>
+								</thead>
+								<tbody id="outthread_table">
+
+								</tbody>
+
+							</table>
+						</div>
+
+					</div>
+				</div>
+			</div>
+			<div id="creat_fram" class="Mycolumn">
+				<div class="box">
+					<div class="field is-horizontal">
+						<div class="field-label is-small">
+							<label class="label">时钟中断频率</label>
+						</div>
+						<div class="field-body">
+							<div class="field">
+								<p class="control">
+									<input class="input is-small is-rounded" type="text" placeholder="Small input"
+										id="shizhong_zhongduan">
+								</p>
+							</div>
+						</div>
+					</div>
+					<div class="field is-horizontal">
+						<div class="field-label is-small">
+							<label class="label">进程时间片</label>
+						</div>
+						<div class="field-body">
+							<div class="field">
+								<p class="control">
+									<input class="input is-small is-rounded" type="text" placeholder="Small input"
+										id="jincheng_shijianpian">
+								</p>
+							</div>
+						</div>
+					</div>
+					<div class="field is-horizontal">
+						<div class="field-label is-small">
+							<label class="label">进程池容量</label>
+						</div>
+						<div class="field-body">
+							<div class="field">
+								<p class="control">
+									<input class="input is-small is-rounded" type="text" placeholder="Small input"
+										id="jincheng_rongliang">
+								</p>
+							</div>
+						</div>
+					</div>
+					<div class="field is-horizontal">
+						<div class="field-label is-small">
+							<label class="label">CPU数量</label>
+						</div>
+						<div class="field-body">
+							<div class="field">
+								<p class="control">
+									<input class="input is-small is-rounded" type="text" placeholder="Small input"
+										id="Cpu_shuliang">
+								</p>
+							</div>
+						</div>
+					</div>
+					<div class="buttons are-small   is-centered">
+						<div class="field is-grouped">
+							<a class="button  is-outlined" id="summit_but">确定</a>
+							<a class="button  is-outlined">取消</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+</body>
+
+</html>
